@@ -6,15 +6,14 @@ import { io } from "socket.io-client";
 
 const socket = io("http://localhost:5100", { reconnection: true });
 
-const RespondBlog = () => {
+const RespondBlog = ({ currentUser }) => {
   const location = useLocation();
   const { post } = location.state || {};
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
-  const [newReply, setNewReply] = useState(""); // state for new replies
-  const [replyTo, setReplyTo] = useState(null); // track which comment you're replying to
-  
-  
+  const [newReply, setNewReply] = useState("");
+  const [replyTo, setReplyTo] = useState(null);
+
   if (!post) {
     return <p>ไม่พบข้อมูลกระทู้</p>;
   }
@@ -30,12 +29,34 @@ const RespondBlog = () => {
     };
 
     fetchComments();
+
     socket.on("new-comment", (updatedComments) => {
       setComments(updatedComments);
     });
 
+    socket.on("comment-deleted", ({ commentId }) => {
+      setComments((prevComments) =>
+        prevComments.filter((comment) => comment._id !== commentId)
+      );
+    });
+
+    socket.on("reply-deleted", ({ commentId, replyId }) => {
+      setComments((prevComments) =>
+        prevComments.map((comment) =>
+          comment._id === commentId
+            ? {
+                ...comment,
+                replies: comment.replies.filter((reply) => reply._id !== replyId),
+              }
+            : comment
+        )
+      );
+    });
+
     return () => {
       socket.off("new-comment");
+      socket.off("comment-deleted");
+      socket.off("reply-deleted");
     };
   }, [post._id]);
 
@@ -47,11 +68,12 @@ const RespondBlog = () => {
     }
 
     try {
-      const { data } = await axios.put( `/api/v1/posts/comment/post/${post._id}`,{
-          comment: newComment,
-        });
+      const { data } = await axios.put(
+        `/api/v1/posts/comment/post/${post._id}`,
+        { comment: newComment }
+      );
       if (data.success) {
-        setNewComment(""); // รีเซ็ตฟอร์ม
+        setNewComment("");
         toast.success("เพิ่มความคิดเห็นสำเร็จ");
         setComments(data.post.comments);
         socket.emit("comment", data.post.comments);
@@ -71,20 +93,56 @@ const RespondBlog = () => {
     try {
       const { data } = await axios.put(
         `/api/v1/posts/comment/reply/${post._id}/${commentId}`,
-        {
-          replyText: newReply, // ส่ง replyText แทน reply
-        },
-
+        { replyText: newReply }
       );
       if (data.success) {
-        setNewReply(""); // รีเซ็ตฟอร์มคำตอบ
-        setReplyTo(null); // ปิดการตอบกลับ
+        setNewReply("");
+        setReplyTo(null);
         toast.success("ตอบกลับความคิดเห็นสำเร็จ");
         setComments(data.post.comments);
         socket.emit("reply", data.post.comments);
       }
     } catch (error) {
       toast.error("เกิดข้อผิดพลาดในการตอบกลับความคิดเห็น");
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    try {
+      const { data } = await axios.delete(
+        `/api/v1/posts/comment/${post._id}/${commentId}`
+      );
+      if (data.success) {
+        toast.success("ลบความคิดเห็นสำเร็จ");
+        setComments((prevComments) =>
+          prevComments.filter((comment) => comment._id !== commentId)
+        );
+      }
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาดในการลบความคิดเห็น");
+    }
+  };
+
+  const handleDeleteReply = async (commentId, replyId) => {
+    try {
+      const { data } = await axios.delete(
+        `/api/v1/posts/reply/${post._id}/${commentId}/${replyId}`
+      );
+      if (data.success) {
+        toast.success("ลบคำตอบสำเร็จ");
+        setComments((prevComments) =>
+          prevComments.map((comment) =>
+            comment._id === commentId
+              ? {
+                  ...comment,
+                  replies: comment.replies.filter((reply) => reply._id !== replyId),
+                }
+              : comment
+          )
+        );
+      }
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาดในการลบคำตอบ");
     }
   };
 
@@ -111,10 +169,7 @@ const RespondBlog = () => {
         {comments.length > 0 ? (
           <div className="space-y-4">
             {comments.map((comment) => (
-              <div
-                key={comment._id}
-                className="p-4 border rounded-lg bg-gray-50"
-              >
+              <div key={comment._id} className="p-4 border rounded-lg bg-gray-50">
                 <p className="font-medium text-gray-600">
                   ตอบกลับโดย:{" "}
                   {comment.postedByPersonnel
@@ -126,7 +181,6 @@ const RespondBlog = () => {
 
                 <p className="text-gray-700 mt-2">{comment.text}</p>
 
-                {/* แสดงฟอร์มการตอบกลับ */}
                 <div className="mt-4">
                   {replyTo === comment._id ? (
                     <form onSubmit={(e) => handleReplySubmit(e, comment._id)}>
@@ -151,9 +205,24 @@ const RespondBlog = () => {
                       ตอบกลับ
                     </button>
                   )}
+                  {/* ลบการตอบกลับเฉพาะเมื่อเป็นคนที่โพสต์เอง */}
+                  {currentUser && comment.replies && comment.replies.length > 0 &&
+                    comment.replies.map((reply) => (
+                      <div key={reply._id}>
+                        {currentUser._id === reply.postedByUser?._id && (
+                          <button
+                            className="text-red-500 text-sm ml-2"
+                            onClick={() =>
+                              handleDeleteReply(comment._id, reply._id)
+                            }
+                          >
+                            ลบการตอบกลับ
+                          </button>
+                        )}
+                      </div>
+                    ))}
                 </div>
 
-                {/* แสดงคำตอบของความคิดเห็น */}
                 {comment.replies && comment.replies.length > 0 && (
                   <div className="mt-4 ml-6 border-l-2 pl-4">
                     {comment.replies.map((reply) => (
@@ -166,7 +235,6 @@ const RespondBlog = () => {
                             ? `${reply.postedByUser.name} ${reply.postedByUser.surname}`
                             : "ผู้ใช้"}
                         </p>
-
                         <p className="text-gray-700 text-sm">{reply.text}</p>
                       </div>
                     ))}
