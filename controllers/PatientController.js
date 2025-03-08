@@ -253,7 +253,7 @@ export const deletePatient = async (req, res) => {
 export const showStats = async (req, res) => {
   try {
     let stats = await Patient.aggregate([
-      { $match: { physicalTherapy: true } },
+      { $match: { physicalTherapy: true, isDeleted: { $nin: [true] } } },
       { $group: { _id: "$userStatus", count: { $sum: 1 } } },
     ]);
 
@@ -263,9 +263,7 @@ export const showStats = async (req, res) => {
       return acc;
     }, {});
 
-    const patientsWithEvaluation = await Evaluation.distinct("userId", {
-      physicalTherapy: true,
-    });
+    const patientsWithEvaluation = await Evaluation.distinct("userId");
 
     const totalphysicalTherapyPatients = await Patient.countDocuments({
       _id: { $in: patientsWithEvaluation },
@@ -279,10 +277,8 @@ export const showStats = async (req, res) => {
       isDeleted: { $nin: [true] },
     });
 
-    const totalPatients = await Patient.countDocuments({
-      physicalTherapy: true,
-      isDeleted: { $nin: [true] },
-    });
+    const totalPatients =
+      totalphysicalTherapyPatients + totalNonPhysicalTherapyPatients;
 
     const defaultStats = {
       กำลังรักษา: stats.กำลังรักษาอยู่ || 0,
@@ -292,59 +288,7 @@ export const showStats = async (req, res) => {
       ผู้ป่วยที่ยังไม่ทำกายภาพบำบัด: totalNonPhysicalTherapyPatients || 0,
     };
 
-    let monthlyApplications = await Patient.aggregate([
-      { $match: { physicalTherapy: true } }, // ✅ กรองเฉพาะคนที่ทำกายภาพบำบัด
-      {
-        $group: {
-          _id: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" },
-          },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": -1, "_id.month": -1 } },
-      { $limit: 6 },
-    ]);
-
-    monthlyApplications = monthlyApplications
-      .map(({ _id: { year, month }, count }) => ({
-        date: day()
-          .month(month - 1)
-          .year(year)
-          .format("MMM YYYY"),
-        count,
-      }))
-      .reverse();
-
-    let monthlyApplications2 = await Patient.aggregate([
-      { $match: { physicalTherapy: true, createdAt: { $exists: true } } },
-      {
-        $group: {
-          _id: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" },
-          },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": -1, "_id.month": -1 } },
-      { $limit: 6 },
-    ]);
-
-    monthlyApplications2 = monthlyApplications2
-      .map(({ _id: { year, month }, count }) => ({
-        date: day()
-          .month(month - 1)
-          .year(year)
-          .format("MMM YYYY"),
-        count,
-      }))
-      .reverse();
-
-    res
-      .status(StatusCodes.OK)
-      .json({ defaultStats, monthlyApplications, monthlyApplications2 });
+    res.status(StatusCodes.OK).json({ defaultStats });
   } catch (error) {
     console.error("❌ Error fetching stats:", error);
     res
