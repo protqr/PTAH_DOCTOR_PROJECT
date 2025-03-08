@@ -44,7 +44,6 @@
     "react-bootstrap": "^2.10.2",
     "react-calendar": "^5.0.0",
     "react-dom": "^18.2.0",
-    "react-dropdown-date": "^2.2.8",
     "react-icons": "^5.4.0",
     "react-router-dom": "^6.23.1",
     "react-select": "^5.8.0",
@@ -58,8 +57,10 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.20",
     "dotenv": "^16.4.7",
+    "postcss": "^8.5.3",
     "tailwindcss": "^3.4.3",
-    "vite": "^5.2.12"
+    "vite": "^5.4.14"
   }
 }
