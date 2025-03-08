@@ -9,7 +9,7 @@ const ChartsContainer = ({ data }) => {
 
   return (
     <Wrapper>
-      <h4>ข้อมูลจำนวนคนไข้ทำกายภาพ</h4>
+      <h4>ข้อมูลจำนวนคนไข้ทั้งหมด</h4>
       <button type="button" onClick={() => setBarChart(!barChart)}>
         {barChart ? "Bar Chart" : "Area Chart"}
       </button>
