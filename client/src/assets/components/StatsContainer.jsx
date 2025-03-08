@@ -36,14 +36,14 @@ const StatsContainer = ({ defaultStats }) => {
   const stats = [
     {
       title: "ยังไม่ทำกายภาพ",
-      count: `${defaultStats?.ผู้ป่วยที่ทำกายภาพบำบัด || 0} คน`,
+      count: `${defaultStats?.ผู้ป่วยที่ยังไม่ทำกายภาพบำบัด || 0} คน`,
       icon: <GiHeartPlus />,
       color: "#f8ba51",
       bcg: "#fcefc7",
     },
     {
       title: "ทำกายภาพแล้ว",
-      count: `${defaultStats?.ผู้ป่วยที่ยังไม่ทำกายภาพบำบัด || 0} คน`,
+      count: `${defaultStats?.ผู้ป่วยที่ทำกายภาพบำบัด || 0} คน`,
       icon: <FaCalendarCheck />,
       color: "#72DA95",
       bcg: "#b6ffce91",
