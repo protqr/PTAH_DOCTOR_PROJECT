@@ -30,20 +30,22 @@ export const getAllPatients = async (req, res) => {
 
   if (userStatus === "คนไข้ที่ขาดการทำกายภาพบำบัด") {
     try {
-      const allPatients = await Patient.find(queryObject).select("_id name surname username");
+      const allPatients = await Patient.find(queryObject).select(
+        "_id name surname username"
+      );
 
       const evaluates = await Evaluation.aggregate([
         {
           $match: {
-            userId: { $in: allPatients.map(p => p._id.toString()) }
-          }
+            userId: { $in: allPatients.map((p) => p._id.toString()) },
+          },
         },
         {
           $group: {
             _id: "$userId",
-            lastEvaluate: { $max: "$created_at" }
-          }
-        }
+            lastEvaluate: { $max: "$created_at" },
+          },
+        },
       ]);
 
       const evaluateMap = evaluates.reduce((acc, ev) => {
@@ -51,10 +53,11 @@ export const getAllPatients = async (req, res) => {
         return acc;
       }, {});
 
-      const filteredPatients = allPatients.filter(patient => {
+      const filteredPatients = allPatients.filter((patient) => {
         const lastEvaluate = evaluateMap[patient._id.toString()];
         if (!lastEvaluate) return true;
-        const daysSinceLastEvaluate = (today - lastEvaluate) / (1000 * 60 * 60 * 24);
+        const daysSinceLastEvaluate =
+          (today - lastEvaluate) / (1000 * 60 * 60 * 24);
         return daysSinceLastEvaluate >= 3;
       });
 
@@ -66,28 +69,39 @@ export const getAllPatients = async (req, res) => {
       });
     } catch (error) {
       console.error("❌ Error fetching evaluates:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ msg: "เกิดข้อผิดพลาดในการดึงข้อมูล" });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ msg: "เกิดข้อผิดพลาดในการดึงข้อมูล" });
     }
   }
 
   if (userStatus === "คนไข้ที่ยังไม่ได้ประเมินวันนี้") {
     try {
       const evaluationsToday = await Evaluation.find({
-        created_at: { $gte: day().startOf("day").toDate(), $lt: day().endOf("day").toDate() }
+        created_at: {
+          $gte: day().startOf("day").toDate(),
+          $lt: day().endOf("day").toDate(),
+        },
       }).select("userId");
 
-      const userIdsEvaluatedToday = evaluationsToday.map(e => e.userId.toString());
+      const userIdsEvaluatedToday = evaluationsToday.map((e) =>
+        e.userId.toString()
+      );
 
       const feedbacks = await FeedbacksModel.find({
         user_id: { $in: userIdsEvaluatedToday },
-        evaluation_date: { $eq: day().format("YYYY-MM-DD") }
+        evaluation_date: { $eq: day().format("YYYY-MM-DD") },
       }).select("user_id");
 
-      const usersWithFeedback = new Set(feedbacks.map(f => f.user_id.toString()));
-
+      const usersWithFeedback = new Set(
+        feedbacks.map((f) => f.user_id.toString())
+      );
 
       const patientsWithoutFeedback = await Patient.find({
-        _id: { $in: userIdsEvaluatedToday, $nin: Array.from(usersWithFeedback) }
+        _id: {
+          $in: userIdsEvaluatedToday,
+          $nin: Array.from(usersWithFeedback),
+        },
       }).select("_id name surname username");
 
       return res.status(StatusCodes.OK).json({
@@ -98,10 +112,11 @@ export const getAllPatients = async (req, res) => {
       });
     } catch (error) {
       console.error("❌ Error fetching feedback data:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ msg: "เกิดข้อผิดพลาดในการดึงข้อมูล" });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ msg: "เกิดข้อผิดพลาดในการดึงข้อมูล" });
     }
   }
-
 
   if (userStatus && userStatus !== "คนไข้ทั้งหมด") {
     queryObject.userStatus = userStatus;
@@ -132,9 +147,10 @@ export const getAllPatients = async (req, res) => {
   const totalPatients = await Patient.countDocuments(queryObject);
   const numOfPages = Math.ceil(totalPatients / limit);
 
-  res.status(StatusCodes.OK).json({ totalPatients, numOfPages, currentPage: page, allusers });
+  res
+    .status(StatusCodes.OK)
+    .json({ totalPatients, numOfPages, currentPage: page, allusers });
 };
-
 
 // export const createPatient = async (req, res) => {
 //   // Extract username from request body
@@ -280,7 +296,10 @@ export const showStats = async (req, res) => {
       { $match: { physicalTherapy: true } }, // ✅ กรองเฉพาะคนที่ทำกายภาพบำบัด
       {
         $group: {
-          _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          },
           count: { $sum: 1 },
         },
       },
@@ -290,7 +309,10 @@ export const showStats = async (req, res) => {
 
     monthlyApplications = monthlyApplications
       .map(({ _id: { year, month }, count }) => ({
-        date: day().month(month - 1).year(year).format("MMM YYYY"),
+        date: day()
+          .month(month - 1)
+          .year(year)
+          .format("MMM YYYY"),
         count,
       }))
       .reverse();
@@ -299,7 +321,10 @@ export const showStats = async (req, res) => {
       { $match: { physicalTherapy: true, createdAt: { $exists: true } } },
       {
         $group: {
-          _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          },
           count: { $sum: 1 },
         },
       },
@@ -309,14 +334,21 @@ export const showStats = async (req, res) => {
 
     monthlyApplications2 = monthlyApplications2
       .map(({ _id: { year, month }, count }) => ({
-        date: day().month(month - 1).year(year).format("MMM YYYY"),
+        date: day()
+          .month(month - 1)
+          .year(year)
+          .format("MMM YYYY"),
         count,
-      })).reverse();
+      }))
+      .reverse();
 
-    res.status(StatusCodes.OK).json({ defaultStats, monthlyApplications, monthlyApplications2 });
+    res
+      .status(StatusCodes.OK)
+      .json({ defaultStats, monthlyApplications, monthlyApplications2 });
   } catch (error) {
     console.error("❌ Error fetching stats:", error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ msg: "เกิดข้อผิดพลาดในการดึงข้อมูล" });
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ msg: "เกิดข้อผิดพลาดในการดึงข้อมูล" });
   }
 };
-
