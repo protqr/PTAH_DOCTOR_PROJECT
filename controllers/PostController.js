@@ -282,3 +282,92 @@ export const addReply = async (req, res) => {
       .json({ message: error.message });
   }
 };
+
+// Delete a comment
+export const deleteComment = async (req, res) => {
+  const { postId, commentId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(postId) || !mongoose.Types.ObjectId.isValid(commentId)) {
+    return res.status(StatusCodes.BAD_REQUEST).json({ message: "โพสต์หรือความคิดเห็นไม่ถูกต้อง" });
+  }
+
+  try {
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: "ไม่พบโพสต์นี้" });
+    }
+
+    const commentIndex = post.comments.findIndex((comment) => comment._id.toString() === commentId);
+
+    if (commentIndex === -1) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: "ไม่พบความคิดเห็นนี้" });
+    }
+
+    // ตรวจสอบสิทธิ์ว่าเป็นเจ้าของความคิดเห็นหรือไม่
+    const comment = post.comments[commentIndex];
+    if (
+      !req.user ||
+      (comment.postedByUser && comment.postedByUser.toString() !== req.user.userId) &&
+      (comment.postedByPersonnel && comment.postedByPersonnel.toString() !== req.user.doctorId)
+    ) {
+      return res.status(StatusCodes.FORBIDDEN).json({ message: "คุณไม่มีสิทธิ์ในการลบความคิดเห็นนี้" });
+    }
+
+    // ลบความคิดเห็น
+    post.comments.splice(commentIndex, 1);
+    await post.save();
+
+    res.status(StatusCodes.OK).json({ success: true, message: "ลบความคิดเห็นสำเร็จ" });
+  } catch (error) {
+    console.error("Error deleting comment:", error.message);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: error.message });
+  }
+};
+
+// Delete a reply
+export const deleteReply = async (req, res) => {
+  const { postId, commentId, replyId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(postId) || !mongoose.Types.ObjectId.isValid(commentId) || !mongoose.Types.ObjectId.isValid(replyId)) {
+    return res.status(StatusCodes.BAD_REQUEST).json({ message: "ไม่พบโพสต์, ความคิดเห็น หรือการตอบกลับที่ถูกต้อง" });
+  }
+
+  try {
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: "ไม่พบโพสต์นี้" });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: "ไม่พบความคิดเห็นนี้" });
+    }
+
+    const replyIndex = comment.replies.findIndex((reply) => reply._id.toString() === replyId);
+
+    if (replyIndex === -1) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: "ไม่พบการตอบกลับนี้" });
+    }
+
+    const reply = comment.replies[replyIndex];
+    // ตรวจสอบสิทธิ์ว่าเป็นเจ้าของการตอบกลับหรือไม่
+    if (
+      !req.user ||
+      (reply.postedByUser && reply.postedByUser.toString() !== req.user.userId) &&
+      (reply.postedByPersonnel && reply.postedByPersonnel.toString() !== req.user.doctorId)
+    ) {
+      return res.status(StatusCodes.FORBIDDEN).json({ message: "คุณไม่มีสิทธิ์ในการลบการตอบกลับนี้" });
+    }
+
+    // ลบการตอบกลับ
+    comment.replies.splice(replyIndex, 1);
+    await post.save();
+
+    res.status(StatusCodes.OK).json({ success: true, message: "ลบการตอบกลับสำเร็จ" });
+  } catch (error) {
+    console.error("Error deleting reply:", error.message);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: error.message });
+  }
+};

@@ -5,7 +5,9 @@ import {
   createPost,
   getPost,
   addComment,
-  addReply
+  addReply,
+  deleteComment,
+  deleteReply
 } from "../controllers/PostController.js";
 
 const router = express.Router();
@@ -17,6 +19,10 @@ router.route("/:_id").get(getPost);
 // ใช้ authenticateUser ในการตรวจสอบการเข้าสู่ระบบก่อนเข้าใช้ addComment
 router.put("/comment/post/:_id", authenticateUser, addComment);
 router.put("/comment/reply/:postId/:commentId", authenticateUser, addReply);
+
+// Route สำหรับลบความคิดเห็นและการตอบกลับที่เป็นของตนเอง
+router.delete("/comment/:postId/:commentId", authenticateUser, deleteComment);
+router.delete("/reply/:postId/:commentId/:replyId", authenticateUser, deleteReply);
 
 
 export default router;
