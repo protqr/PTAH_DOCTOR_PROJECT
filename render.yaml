@@ -3,7 +3,7 @@ services:
     name: my-backend
     env: node
     rootDir: .
-    buildCommand: cd .. && npm install
+    buildCommand: cd .. && npm install && npm run server
     startCommand: node index.js
     envVars:
       - key: MONGO_URI
